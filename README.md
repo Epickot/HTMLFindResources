@@ -36,6 +36,10 @@ To run this project locally, follow these steps:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+## Legal Notice
+
+This project is intended for personal and educational use. By using this code, the user agrees that it is their responsibility to ensure that the use of any downloaded resources complies with copyright laws and the terms of service of the originating website. The author of this project is not responsible for any misuse of the code or any copyright infringement committed by users.
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
