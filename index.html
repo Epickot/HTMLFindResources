@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Selector</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            background-color: #6200ea;
+            color: #ffffff;
+            width: 100%;
+            padding: 20px 0;
+            text-align: center;
+            font-size: 1.5em;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .container {
+            margin: 20px;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 800px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            resize: vertical;
+        }
+
+        button {
+            background-color: #6200ea;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-right: 10px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #3700b3;
+        }
+
+        #resourceList {
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        .progress-bar-fill {
+            height: 20px;
+            background-color: #6200ea;
+            width: 0;
+            transition: width 0.5s ease;
+        }
+
+        .error-log {
+            color: red;
+            margin-top: 20px;
+            background-color: #ffeeee;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .checkbox-container input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .checkbox-container span {
+            flex-grow: 1;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+    <header>Resource Selector Tool</header>
+    <div class="container">
+        <textarea id="htmlInput" rows="10" placeholder="Paste your HTML here..."></textarea>
+        <div class="button-group">
+            <button onclick="parseHTML()">Parse HTML</button>
+            <button onclick="clearAll()">Clear</button>
+        </div>
+        
+        <div id="resourceList"></div>
+        
+        <div class="checkbox-container">
+            <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)">
+            <span>Select/Deselect All</span>
+        </div>
+        
+        <button id="downloadButton" onclick="downloadSelected()" disabled>Download Selected</button>
+        
+        <div class="progress-bar" id="progressBar" style="display: none;">
+            <div class="progress-bar-fill" id="progressBarFill"></div>
+        </div>
+
+        <div id="errorLog" class="error-log" style="display: none;"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip-utils/0.1.0/jszip-utils.min.js"></script>
+    <script>
+        function parseHTML() {
+            const html = document.getElementById('htmlInput').value;
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const scripts = doc.querySelectorAll('script[src]');
+            const links = doc.querySelectorAll('link[rel="stylesheet"]');
+            const resourceList = document.getElementById('resourceList');
+            const errorLog = document.getElementById('errorLog');
+            errorLog.innerHTML = '';
+            errorLog.style.display = 'none';
+            resourceList.innerHTML = '';
+
+            scripts.forEach(script => {
+                addResourceToList(script.src, 'js');
+            });
+
+            links.forEach(link => {
+                addResourceToList(link.href, 'css');
+            });
+
+            document.getElementById('downloadButton').disabled = false;
+        }
+
+        function addResourceToList(url, type) {
+            const resourceList = document.getElementById('resourceList');
+            const listItem = document.createElement('div');
+            const checkboxContainer = document.createElement('div');
+            checkboxContainer.className = 'checkbox-container';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = url;
+            checkbox.dataset.type = type;
+            const label = document.createElement('span');
+            label.textContent = url;
+            checkboxContainer.appendChild(checkbox);
+            checkboxContainer.appendChild(label);
+            listItem.appendChild(checkboxContainer);
+            resourceList.appendChild(listItem);
+        }
+
+        function toggleSelectAll(source) {
+            const checkboxes = document.querySelectorAll('#resourceList input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = source.checked;
+            });
+        }
+
+        function downloadSelected() {
+            const checkboxes = document.querySelectorAll('#resourceList input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('No resources selected');
+                return;
+            }
+
+            const zip = new JSZip();
+            const jsFolder = zip.folder('js');
+            const cssFolder = zip.folder('css');
+            const errorLog = document.getElementById('errorLog');
+            errorLog.innerHTML = '';
+            errorLog.style.display = 'none';
+            const progressBar = document.getElementById('progressBar');
+            const progressBarFill = document.getElementById('progressBarFill');
+            progressBar.style.display = 'block';
+            progressBarFill.style.width = '0%';
+            let filesToDownload = checkboxes.length;
+            let filesDownloaded = 0;
+
+            checkboxes.forEach(checkbox => {
+                const url = checkbox.value;
+                const type = checkbox.dataset.type;
+
+                JSZipUtils.getBinaryContent(url, (err, data) => {
+                    if (err) {
+                        const errorMessage = `Error downloading ${url}: ${err.message}`;
+                        const errorItem = document.createElement('div');
+                        errorItem.textContent = errorMessage;
+                        errorLog.appendChild(errorItem);
+                        errorLog.style.display = 'block';
+                    } else {
+                        if (type === 'js') {
+                            jsFolder.file(url.split('/').pop(), data);
+                        } else if (type === 'css') {
+                            cssFolder.file(url.split('/').pop(), data);
+                        }
+                    }
+
+                    filesDownloaded++;
+                    progressBarFill.style.width = `${(filesDownloaded / filesToDownload) * 100}%`;
+
+                    if (filesDownloaded === filesToDownload) {
+                        generateZip(zip);
+                    }
+                });
+            });
+        }
+
+        function generateZip(zip) {
+            zip.generateAsync({ type: 'blob' }).then(content => {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = 'resources.zip';
+                link.click();
+            });
+        }
+
+        function clearAll() {
+            document.getElementById('htmlInput').value = '';
+            document.getElementById('resourceList').innerHTML = '';
+            document.getElementById('errorLog').innerHTML = '';
+            document.getElementById('errorLog').style.display = 'none';
+            document.getElementById('progressBar').style.display = 'none';
+            document.getElementById('downloadButton').disabled = true;
+            document.getElementById('selectAll').checked = false;
+        }
+    </script>
+</body>
+</html>
